@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Hosting BTH</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
+        .container { max-width: 700px; margin: 0 auto; }
+        h1 { color: #7289da; text-align: center; font-size: 32px; margin-bottom: 5px; }
+        .sub-title { text-align: center; color: #aaa; font-size: 14px; margin-bottom: 25px; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        .card { background: #16213e; padding: 20px; border-radius: 12px; margin: 20px 0; }
+        .card h3 { color: #7289da; margin-bottom: 15px; }
+        input, textarea { 
+            width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; 
+            border: none; background: #0f3460; color: #fff; font-size: 14px;
+        }
+        textarea { resize: vertical; font-family: monospace; }
+        button { 
+            padding: 12px 25px; border-radius: 8px; border: none; 
+            background: #7289da; color: #fff; font-weight: bold; cursor: pointer; 
+            font-size: 15px; transition: 0.2s;
+        }
+        button:hover { background: #5b6eae; transform: scale(1.02); }
+        button.danger { background: #e94560; }
+        button.danger:hover { background: #c0392b; }
+        button.success { background: #2ecc71; }
+        button.success:hover { background: #27ae60; }
+        .bot-item { 
+            background: #0f3460; padding: 15px; border-radius: 8px; margin: 12px 0; 
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+        }
+        .bot-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .bot-name { font-weight: bold; font-size: 16px; }
+        .status { 
+            display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .online { background: #2ecc71; color: #fff; }
+        .offline { background: #e94560; color: #fff; }
+        .bot-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .bot-actions button { padding: 6px 14px; font-size: 13px; }
+        .msg { padding: 12px; border-radius: 8px; margin: 10px 0; display: none; }
+        .msg.success { display: block; background: #2ecc71; color: #fff; }
+        .msg.error { display: block; background: #e94560; color: #fff; }
+        .empty { text-align: center; color: #888; padding: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #555; font-size: 13px; }
+        .tag { 
+            display: inline-block; background: #7289da; color: #fff; 
+            padding: 2px 10px; border-radius: 12px; font-size: 11px; margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Bot Hosting BTH</h1>
+        <div class="sub-title">Quản lý bot Discord của bạn dễ dàng</div>
+
+        <!-- Thêm Bot -->
+        <div class="card">
+            <h3>📥 Thêm Bot Mới</h3>
+            <input type="password" id="token" placeholder="Nhập Token Bot...">
+            <input type="password" id="auth" placeholder="Mã xác thực (6 số)...">
+            <button id="addBtn">➕ Thêm Bot</button>
+            <div id="msg" class="msg"></div>
+        </div>
+
+        <!-- Danh sách Bot -->
+        <div class="card">
+            <h3>📋 Danh sách Bot</h3>
+            <div id="list"><div class="empty">Chưa có bot nào!</div></div>
+        </div>
+
+        <!-- Upload Code -->
+        <div class="card" id="uploadSection" style="display:none;">
+            <h3>📤 Upload Code</h3>
+            <input type="password" id="uploadAuth" placeholder="Nhập mã xác thực...">
+            <textarea id="codeArea" rows="8" placeholder="// Viết code bot của bạn ở đây..."></textarea>
+            <button id="uploadBtn">🚀 Chạy Code</button>
+            <div id="uploadMsg" class="msg"></div>
+        </div>
+
+        <div class="footer">Bot Hosting BTH © 2026 - Made with ❤️</div>
+    </div>
+
+    <script>
+        let bots = JSON.parse(localStorage.getItem('bots')) || [];
+        // 🔥 QUAN TRỌNG: SỬA LINK BACKEND CỦA BẠN VÀO ĐÂY
+        const API = 'https://your-backend.onrender.com/api';
+
+        function render() {
+            const div = document.getElementById('list');
+            if (!bots.length) {
+                div.innerHTML = '<div class="empty">Chưa có bot nào!</div>';
+                return;
+            }
+            div.innerHTML = bots.map((b, i) => `
+                <div class="bot-item">
+                    <div class="bot-info">
+                        <span class="bot-name">${b.name || 'Bot'}</span>
+                        <span class="status ${b.online ? 'online' : 'offline'}">
+                            ${b.online ? '🟢 Đang hoạt động' : '🔴 Đã ngắt kết nối'}
+                        </span>
+                        <span class="tag">${b.serverCount || 0} server</span>
+                    </div>
+                    <div class="bot-actions">
+                        <button class="success" onclick="startBot(${i})">▶️ Bắt đầu</button>
+                        <button onclick="showUpload(${i})">📤 Upload Code</button>
+                        <button class="danger" onclick="deleteBot(${i})">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('addBtn').onclick = async function() {
+            const token = document.getElementById('token').value.trim();
+            const auth = document.getElementById('auth').value.trim();
+            const msg = document.getElementById('msg');
+            if (!token || !auth || auth.length !== 6) {
+                showMsg(msg, '❌ Vui lòng nhập đầy đủ thông tin!', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(API + '/add-bot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, authCode: auth })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    bots.push({
+                        id: data.botId,
+                        name: data.botName,
+                        token: token,
+                        authCode: auth,
+                        online: true,
+                        serverCount: data.serverCount || 0,
+                        code: ''
+                    });
+                    localStorage.setItem('bots', JSON.stringify(bots));
+                    render();
+                    showMsg(msg, '✅ Thêm bot thành công!', 'success');
+                    document.getElementById('token').value = '';
+                    document.getElementById('auth').value = '';
+                } else {
+                    showMsg(msg, '❌ ' + (data.error || 'Lỗi không xác định'), 'error');
+                }
+            } catch(e) {
+                showMsg(msg, '❌ Không thể kết nối đến server!', 'error');
+            }
+        };
+
+        async function startBot(i) {
+            const b = bots[i];
+            if (!b) return;
+            try {
+                const res = await fetch(API + '/start-bot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: b.token, authCode: b.authCode, code: b.code || '' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    b.online = true;
+                    localStorage.setItem('bots', JSON.stringify(bots));
+                    render();
+                } else {
+                    alert('❌ ' + (data.error || 'Không thể khởi động bot!'));
+                }
+            } catch(e) {
+                alert('❌ Lỗi kết nối!');
+            }
+        }
+
+        async function deleteBot(i) {
+            const b = bots[i];
+            if (!b) return;
+            const auth = prompt('🔐 Nhập mã xác thực để xóa bot này:');
+            if (auth !== b.authCode) {
+                alert('❌ Mã xác thực sai!');
+                return;
+            }
+            if (!confirm('Bạn có chắc muốn xóa bot "' + b.name + '" không?')) return;
+            try {
+                await fetch(API + '/stop-bot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: b.token, authCode: b.authCode })
+                });
+                bots.splice(i, 1);
+                localStorage.setItem('bots', JSON.stringify(bots));
+                render();
+            } catch(e) {
+                alert('❌ Lỗi khi xóa bot!');
+            }
+        }
+
+        function showUpload(i) {
+            const b = bots[i];
+            if (!b) return;
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('codeArea').value = b.code || '';
+            document.getElementById('uploadSection').dataset.index = i;
+            document.getElementById('uploadAuth').value = '';
+            document.getElementById('uploadMsg').className = 'msg';
+            document.getElementById('uploadMsg').style.display = 'none';
+        }
+
+        document.getElementById('uploadBtn').onclick = async function() {
+            const i = parseInt(document.getElementById('uploadSection').dataset.index);
+            const b = bots[i];
+            if (!b) return;
+            const auth = document.getElementById('uploadAuth').value.trim();
+            const code = document.getElementById('codeArea').value.trim();
+            const msg = document.getElementById('uploadMsg');
+            if (auth !== b.authCode) {
+                showMsg(msg, '❌ Mã xác thực sai!', 'error');
+                return;
+            }
+            if (!code) {
+                showMsg(msg, '❌ Vui lòng nhập code bot!', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(API + '/upload-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: b.token, authCode: b.authCode, code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    b.code = code;
+                    b.online = true;
+                    localStorage.setItem('bots', JSON.stringify(bots));
+                    render();
+                    showMsg(msg, '✅ Code đã được upload và chạy thành công!', 'success');
+                } else {
+                    showMsg(msg, '❌ ' + (data.error || 'Lỗi không xác định'), 'error');
+                }
+            } catch(e) {
+                showMsg(msg, '❌ Lỗi kết nối!', 'error');
+            }
+        };
+
+        function showMsg(el, text, type) {
+            el.textContent = text;
+            el.className = 'msg ' + type;
+            el.style.display = 'block';
+            setTimeout(() => {
+                el.style.display = 'none';
+            }, 6000);
+        }
+
+        render();
+    </script>
+</body>
+  </html>
